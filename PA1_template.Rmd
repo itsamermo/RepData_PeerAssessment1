@@ -1,25 +1,120 @@
----
-title: "Reproducible Research: Peer Assessment 1"
-output: 
-  html_document:
-    keep_md: true
----
+##week2_project
+
+```{r globals}
+#install.packages("knitr")
+if(!require("knitr")) install.packages("knitr")
+require("knitr")
+if (!require(data.table)) install.packages("data.table")
+require(data.table)
+```
 
 
-## Loading and preprocessing the data
+```{r global code chunk options}
+opts_chunk$set(echo=TRUE, warning=FALSE, message=FALSE)
+			   
+```
 
 
+```{r}
+###Loading and preprocessing the data
+data <- read.table("./repdata/data/activity/activity.csv", header=T, sep=",")
 
-## What is mean total number of steps taken per day?
+setDT(data)
+tsteps <- data[!is.na(steps), sum(steps), by = .(date)]
+
+```
+
+```{r mean}			   
+##Plot histogram and calculate mean, median
+hist(tsteps$V1,xlab="x=total steps taken per day",ylab="f(x)", breaks=30, main="Histogram of Steps")
+
+mean(tsteps$V1, na.rm = TRUE)
+median(tsteps$V1, na.rm = TRUE)
+
+```
+
+```{r }
+### average dialy activity pattern
+avg.dly.actv <- data[!is.na(steps), mean(steps), by = .(interval)]
+plot(avg.dly.actv$interval,avg.dly.actv$V1,xlab='5-minute interval',ylab='avg no# steps taken, across all days', type='l')
+abline(v=avg.dly.actv$interval[which.max(avg.dly.actv$V1)], col='blue')
+
+###which interval has higest no# of average steps accross all days
+avg.dly.actv$interval[which.max(avg.dly.actv$V1)]
+
+```
+
+```{r}
+###Imputing missing values
+
+###Calculate and report the total number of missing values
+sum(is.na(data$steps))
+sum(complete.cases(data))
+
+###impute missing steps as the mean for that 5-minute interval, accross all days
+### we have such a compute stored as avg.dly.actv
+
+imp.data <- merge(data,avg.dly.actv)
+str(imp.data)
+setorder(imp.data,date)
+imp.data
+
+### fill steps from mean where ever it is na
+imp.data$steps[is.na(imp.data$steps)] <- imp.data$V1[is.na(imp.data$steps)]
+
+##new data set with imputes
+
+imp.data <-  imp.data[,-c('V1')]
+setcolorder(imp.data, c("steps", "date", "interval"))
+imp.data
+data
+```
+
+```{r}
+### make histogram of total no# of steps taken each day
+new.tsteps <- data[!is.na(steps), sum(steps), by = .(date)]
+##Plot histogram and calculate mean, median
+hist(new.tsteps$V1,xlab="x=total steps taken per day",ylab="f(x)", breaks=30, main="Histogram of Steps")
+
+mean(new.tsteps$V1, na.rm = TRUE)
+median(new.tsteps$V1, na.rm = TRUE)
 
 
-
-## What is the average daily activity pattern?
-
-
-
-## Imputing missing values
+##comparing summaries before after impute
+mean(new.tsteps$V1) -	mean(new.tsteps$V1) 	
+median(new.tsteps$V1) - median(new.tsteps$V1)
 
 
+```
 
-## Are there differences in activity patterns between weekdays and weekends?
+
+```{r}
+##install packages
+##install.packages('lubridate')
+require(lubridate)
+
+imp.data
+### deriving new factor variable based on date 
+imp.data$day.type <- factor( weekdays(as.Date(as.character(imp.data$date))))
+
+###custom labelling levels of new factor
+levels(imp.data$day.type)
+levels(imp.data$day.type) <- c("weekday","weekday","weekend" ,"weekend" , "weekday" ,"weekday" ,"weekday")
+levels(imp.data$day.type)
+
+
+### average dialy activity pattern
+new.avg.dly.actv <- imp.data[ , mean(steps), by = .(interval,day.type)]
+str(new.avg.dly.actv)
+###new.avg.dly.actv[interval==0,]
+
+#plot(avg.dly.actv$interval,avg.dly.actv$V1,xlab='5-minute interval',ylab='avg no# steps taken, across all days', type='l')
+#abline(v=avg.dly.actv$interval[which.max(avg.dly.actv$V1)], col='blue')
+
+require(ggplot2)
+p <- ggplot(new.avg.dly.actv, aes(interval, V1)) +
+geom_line() + facet_grid(. ~ day.type, labeller=label_both) + xlab("5-minute interval")	+ ylab("avg no# steps taken, across all days")
+
+print(p)
+
+```
